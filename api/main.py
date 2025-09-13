@@ -22,10 +22,11 @@ r = get_redis()
 app = FastAPI(title=APP_TITLE, version="0.1.0")
 
 class JobCreate(BaseModel):
-    type: str = Field(examples=["text.reverse", "math.square"])
+    type: str
     payload: Dict[str, Any] | None = Field(default_factory=dict)
     dedupe_key: Optional[str] = None
     max_attempts: int = 5
+    priority: str = Field(default="default")  # "high" | "default" | "low"
 
 class JobId(BaseModel):
     job_id: str
@@ -64,7 +65,8 @@ def create_job(body: JobCreate):
 
     pipe = r.pipeline()
     pipe.set(f"job:{job_id}", json.dumps(job))
-    pipe.rpush("queue:default", json.dumps(job))
+    queue_key = f"queue:{body.priority if body.priority in {'high','default','low'} else 'default'}" 
+    pipe.rpush(queue_key, json.dumps(job))
     if body.dedupe_key:
         # store mapping; TTL optional (e.g., 1 day) to avoid unbounded growth
         pipe.set(f"dedupe:{body.dedupe_key}", job_id)

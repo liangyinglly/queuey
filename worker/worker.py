@@ -50,7 +50,7 @@ def work_loop():
     print("[worker] starting...")
     while running:
         try:
-            item = r.blpop("queue:default", timeout=2)
+            item = r.blpop(["queue:high", "queue:default", "queue:low"], timeout=2)
             if not item:
                 continue
 
