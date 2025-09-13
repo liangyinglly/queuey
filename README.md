@@ -12,10 +12,12 @@ Queuey is a small, production-shaped background jobs system:
 > First milestone (MVP): runs with Docker Compose, no external DB required.
 
 ---
+
 ## Outline
 
 
 ---
+
 ## Structure View
 
 ```mermaid
@@ -33,6 +35,7 @@ flowchart LR
   W2 -->|update status/result| A
   W1 -->|on max retries| DLQ[(queue:dlq)]
   WD -->|requeue expired leases| Q
+```
 
 ---
 
