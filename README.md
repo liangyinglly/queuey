@@ -23,21 +23,20 @@ It demonstrates **distributed systems principles** such as decoupling, fault tol
 
 ```mermaid
 flowchart LR
-  C[Client] -->|"POST /v1/jobs"| A[API (FastAPI)]
-  A -->|"enqueue"| Q[(Redis Queues)]
-
+  C[Client] -->|POST /v1/jobs| A[API - FastAPI]
+  A -->|enqueue| Q[(Redis Queues)]
   subgraph Workers
     W1[Worker 1]
     W2[Worker 2]
     WD[Watchdog]
   end
+  Q -->|BLPOP high->default->low| W1
+  Q -->|BLPOP high->default->low| W2
+  W1 -->|update status/result| A
+  W2 -->|update status/result| A
+  W1 -->|max retries reached| DLQ[(queue:dlq)]
+  WD -->|requeue expired leases| Q
 
-  Q -->|"BLPOP high→default→low"| W1
-  Q -->|"BLPOP high→default→low"| W2
-  W1 -->|"update status/result"| A
-  W2 -->|"update status/result"| A
-  W1 -->|"max retries reached"| DLQ[(queue:dlq)]
-  WD -->|"requeue expired leases"| Q
 
 
 ---
