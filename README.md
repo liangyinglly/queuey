@@ -29,14 +29,14 @@ curl -s -X POST http://localhost:8000/v1/jobs \
 # 3) Check job status/result
 curl -s http://localhost:8000/v1/jobs/<job_id> | jq
 
-<img width="571" height="279" alt="截圖 2025-09-13 16 37 51" src="https://github.com/user-attachments/assets/4ce188be-b3ca-44e0-8cd1-81334c926af7" />
+
 
 **Metrics (basic):**
 ```bash
 curl -s http://localhost:8000/v1/queues/metrics | jq
 # => queue_default_length, queue_dlq_length
 ```
-
+<img width="571" height="279" alt="截圖 2025-09-13 16 37 51" src="https://github.com/user-attachments/assets/4ce188be-b3ca-44e0-8cd1-81334c926af7" />
 **Admin (replay DLQ):**
 ```bash
 curl -s -X POST "http://localhost:8000/v1/replay-dlq?limit=100" -H "x-api-key: dev" | jq
