@@ -62,18 +62,21 @@ def work_loop():
             if not job.get("started_at"):
                 job["started_at"] = now_iso()
             save_job(job)
+            r.set(f"lease:{job['id']}", "1", ex=30) #create a lease for watchdog to prevent worker crash issues
 
             try:
                 result = process(job)
                 job["status"] = "succeeded"
                 job["result"] = result
                 job["finished_at"] = now_iso()
+                r.delete(f"lease:{job['id']}") # remove lease on success
                 save_job(job)
                 print(f"[worker] job {job['id']} OK")
             except Exception as e:
                 job["attempts"] = int(job.get("attempts", 0)) + 1
                 job["last_error"] = repr(e)
                 max_attempts = int(job.get("max_attempts", 5))
+                r.delete(f"lease:{job['id']}") # remove lease on failure 
 
                 if job["attempts"] < max_attempts:
                     # Exponential backoff with jitter (cap at 60s)
@@ -88,8 +91,9 @@ def work_loop():
                 else:
                     job["status"] = "dead_letter"
                     job["finished_at"] = now_iso()
+                    r.delete(f"lease:{job['id']}")
                     save_job(job)
-                    r.rpush("queue:dlq", json.dumps(job))
+                    r.rpush("queue:dlq", json.dumps(job)) # ensure lease is removed before entering DLQ
                     print(f"[worker] job {job['id']} moved to DLQ after {job['attempts']} attempts")
         except Exception as loop_err:
             # Non-job-specific failure; brief pause to avoid tight loop
