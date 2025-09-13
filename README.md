@@ -1,29 +1,30 @@
-# Queuey — A Minimal Distributed Job Queue (FastAPI + Redis + Docker)
+# Queuey — A Distributed Job Queue System (FastAPI + Redis + Docker)
 
-Queuey is a small, production-shaped background jobs system:
-- **FastAPI** service exposes REST endpoints to submit and track jobs.
-- **Worker** pulls from Redis to process jobs concurrently.
-- **Retries with exponential backoff**, **dead-letter queue (DLQ)**, and **idempotency (optional)** included.
-- **Watchdog**：implement **Visibility Timeout** to avoid job missing
-- **Observability**：integrete Prometheus/Grafana（Metrics & Dashboard）
-- **Dockerized** for local dev; ready to deploy to AWS ECS later.
-- **Load Test**：k6 pressure test
+[![CI](https://github.com/liangyinglly/queuey/actions/workflows/ci.yml/badge.svg)](../../actions)
 
-> First milestone (MVP): runs with Docker Compose, no external DB required.
+Queuey is a **minimal but complete distributed job queue system**, inspired by tools like Celery or Sidekiq.  
+It demonstrates **distributed systems principles** such as decoupling, fault tolerance, retries, and scalability, while being easy to run locally with Docker.
 
 ---
 
-## Outline
-
+## ✨ Features
+- **FastAPI REST API**: Submit and track background jobs
+- **Worker service**: Executes jobs with retries, exponential backoff, and a Dead Letter Queue (DLQ)
+- **Watchdog service**: Implements **visibility timeout** to prevent job loss if workers crash
+- **Priority Queues**: High / Default / Low priority scheduling
+- **Observability**: Can expose metrics for Prometheus + Grafana dashboards
+- **Load testing**: k6 scripts to validate throughput and latency
+- **Docker Compose**: Run the full system with a single command
+- **CI/CD**: GitHub Actions workflow with automated smoke tests
 
 ---
 
-## Structure View
+## 📐 Architecture
 
 ```mermaid
 flowchart LR
   C[Client] -->|POST /v1/jobs| A[API (FastAPI)]
-  A -->|enqueue| Q[(Redis queues)]
+  A -->|enqueue| Q[(Redis Queues)]
   subgraph Workers
     W1[Worker 1]
     W2[Worker 2]
@@ -33,9 +34,8 @@ flowchart LR
   Q -->|BLPOP high->default->low| W2
   W1 -->|update status/result| A
   W2 -->|update status/result| A
-  W1 -->|on max retries| DLQ[(queue:dlq)]
+  W1 -->|max retries reached| DLQ[(queue:dlq)]
   WD -->|requeue expired leases| Q
-```
 
 ---
 
