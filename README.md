@@ -17,6 +17,7 @@ Queuey is a small, production-shaped background jobs system:
 
 ---
 ## Structure View
+
 ```mermaid
 flowchart LR
   C[Client] -->|POST /v1/jobs| A[API (FastAPI)]
