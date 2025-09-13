@@ -23,9 +23,6 @@ curl -s -X POST http://localhost:8000/v1/jobs \
   -H "Content-Type: application/json" \
   -d '{"type":"text.reverse","payload":{"text":"hello world"}}' | jq
 
-# Sample response:
-# {"job_id":"<uuid>"}
-
 # 3) Check job status/result
 curl -s http://localhost:8000/v1/jobs/<job_id> | jq
 
