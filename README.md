@@ -22,7 +22,7 @@ It demonstrates **distributed systems principles** such as decoupling, fault tol
 ## 📐 Architecture
 
 ```mermaid
-  flowchart LR
+flowchart LR
   C[Client] -->|"POST /v1/jobs"| A[API (FastAPI)]
   A -->|"enqueue"| Q[(Redis Queues)]
 
