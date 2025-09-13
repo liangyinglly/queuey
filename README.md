@@ -4,37 +4,36 @@ Queuey is a small, production-shaped background jobs system:
 - **FastAPI** service exposes REST endpoints to submit and track jobs.
 - **Worker** pulls from Redis to process jobs concurrently.
 - **Retries with exponential backoff**, **dead-letter queue (DLQ)**, and **idempotency (optional)** included.
+- **Watchdog**：implement **Visibility Timeout** to avoid job missing
+- **Observability**：integrete Prometheus/Grafana（Metrics & Dashboard）
 - **Dockerized** for local dev; ready to deploy to AWS ECS later.
+- **Load Test**：k6 pressure test
 
 > First milestone (MVP): runs with Docker Compose, no external DB required.
 
 ---
-
-## Quickstart
-
-**Prereqs:** Docker Desktop (or Docker Engine), `curl`
-
-```bash
-# 1) Build and run
-docker compose up --build
-
-# 2) In another terminal: submit a job
-curl -s -X POST http://localhost:8000/v1/jobs \
-  -H "Content-Type: application/json" \
-  -d '{"type":"text.reverse","payload":{"text":"hello world"}}' | jq
-
-# 3) Check job status/result
-curl -s http://localhost:8000/v1/jobs/<job_id> | jq
+## Outline
 
 
+---
+## Structure View
+```mermaid
+flowchart LR
+  C[Client] -->|POST /v1/jobs| A[API (FastAPI)]
+  A -->|enqueue| Q[(Redis queues)]
+  subgraph Workers
+    W1[Worker 1]
+    W2[Worker 2]
+    WD[Watchdog]
+  end
+  Q -->|BLPOP high->default->low| W1
+  Q -->|BLPOP high->default->low| W2
+  W1 -->|update status/result| A
+  W2 -->|update status/result| A
+  W1 -->|on max retries| DLQ[(queue:dlq)]
+  WD -->|requeue expired leases| Q
 
-**Metrics (basic):**
-```bash
-curl -s http://localhost:8000/v1/queues/metrics | jq
-# => queue_default_length, queue_dlq_length
-```
-<img width="571" height="279" alt="截圖 2025-09-13 16 37 51" src="https://github.com/user-attachments/assets/4ce188be-b3ca-44e0-8cd1-81334c926af7" /> 
-
+---
 
 **Admin (replay DLQ):**
 ```bash
