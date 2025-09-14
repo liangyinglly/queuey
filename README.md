@@ -45,6 +45,37 @@ flowchart LR
 - Reliability is achieved through retries, DLQ, and watchdog lease requeueing.
 
 ---
+## System Design
+1. Redis
+- Uses Redis lists (RPUSH, BLPOP) for atomic, FIFO queue operations.
+- Multiple queues (queue:high, queue:default, queue:low) enable priority scheduling by polling in order of importance.
+- Advantage: lightweight and fast. Trade-off: Redis is a single point of failure unless clustered.
+2. Workers
+- Workers continuously poll queues in order: BLPOP [high, default, low].
+- Each job is marked as running with a lease key in Redis (TTL = 30s).
+- If a worker crashes, the lease expires and the watchdog requeues the job.
+3. Reliability
+- Retries: Jobs failing temporarily are retried with exponential backoff + jitter.
+- Dead Letter Queue (DLQ): Jobs that exceed max_attempts are sent to queue:dlq for later inspection.
+- Dedupe keys: Prevent duplicate jobs from being enqueued (idempotency).
+4. Priority Scheduling
+- High-priority jobs always preempt lower-priority jobs.
+- Demonstrated by submitting a low-priority job first, then a high-priority job — the worker processes the high job first.
+5. Observability
+- /v1/queues/metrics reports queue depths.
+- Supports Prometheus + Grafana dashboards.(Use `docker-compose.override.yml` to run Prometheus (9090) and Grafana (3000))
+- Metrics to expose:
+  - `queue_depth{queue="high|default|low|dlq"}`
+  - `jobs_processed_total{status="success|failure"}`
+  - `job_latency_seconds` histogram
+6. Design choices
+- At-least-once delivery: Jobs may be retried, so side-effectful jobs must be idempotent.
+- Exactly-once delivery not guaranteed: Requires more complex consensus/storage systems.
+- Redis chosen over a database: Faster queue operations, but less durable than Postgres/Kafka.
+- FastAPI chosen: Lightweight, async-ready API layer; easier to extend with new endpoints.
+- Dockerized: Simplifies local development, mirrors production containerized setups.
+
+---
 ## Prerequisites: Docker / Docker Compose
 <img width="1142" height="558" alt="image" src="https://github.com/user-attachments/assets/712aea95-c8d4-451a-950f-afa32efc9ed4" />
 
@@ -89,17 +120,7 @@ curl http://localhost:8000/v1/jobs/<job_id>
 
 ---
 
-## Reliability
-
-- Retries with exponential backoff: failed jobs retried with 2^k + jitter seconds
-- Dead Letter Queue (DLQ): jobs exceeding max attempts go to DLQ
-- Visibility Timeout: watchdog requeues jobs if workers crash
-- Idempotency: dedupe_key prevents duplicate side effects
-- Graceful shutdown: workers finish current jobs before exit
-
----
-
-## Priority Queues
+## Priority Queue Demo
 
 Jobs can be submitted with priority.
 Workers always consume high > default > low.
@@ -118,18 +139,15 @@ curl -X POST http://localhost:8000/v1/jobs \
 ---
 
 ## Observability
-Supports Prometheus + Grafana dashboards.
-
-Metrics to expose:
-
-- `queue_depth{queue="high|default|low|dlq"}`
-
-- `jobs_processed_total{status="success|failure"}`
-
-- `job_latency_seconds` histogram
-
-Use `docker-compose.override.yml` to run Prometheus (9090) and Grafana (3000).
-
+Metrics exposed by /v1/queues/metrics:
+```
+{
+  "queue_high_length": 0,
+  "queue_default_length": 2,
+  "queue_low_length": 1,
+  "queue_dlq_length": 0
+}
+```
 ---
 
 ## Load Testing
@@ -142,13 +160,6 @@ Observe:
 - Success rate (>99%)
 - Latency (p95 ideally <2s with 5 workers @100RPS)
 - Scaling behavior with more workers
-
----
-## SLA/SLI Targets
-- Job success rate ≥ 99.5%
-- End-to-end latency (p95) < 2s under load
-- API availability ≥ 99.9%
-  
 ---
 ## Development & CI
 - Local dev: `docker compose up --build`
