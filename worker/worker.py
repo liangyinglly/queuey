@@ -54,8 +54,10 @@ def work_loop():
             if not item:
                 continue
 
-            _, raw = item
+            queue_key, raw = item  
             job = json.loads(raw)
+            job.setdefault("priority", queue_key.split(":", 1)[-1])
+            print(f"[worker] picked {job['id']} from {queue_key} priority={job['priority']}")
 
             # Transition to running
             job["status"] = "running"

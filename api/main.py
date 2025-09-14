@@ -48,10 +48,12 @@ def create_job(body: JobCreate):
             return JobId(job_id=existing)
 
     job_id = str(uuid.uuid4())
+    priority = body.priority if body.priority in {"high","default","low"} else "default"
     job = {
         "id": job_id,
         "type": body.type,
         "payload": body.payload or {},
+        "priority": priority,
         "dedupe_key": body.dedupe_key,
         "status": "queued",
         "attempts": 0,
@@ -65,7 +67,7 @@ def create_job(body: JobCreate):
 
     pipe = r.pipeline()
     pipe.set(f"job:{job_id}", json.dumps(job))
-    queue_key = f"queue:{body.priority if body.priority in {'high','default','low'} else 'default'}" 
+    queue_key = f"queue:{priority}"
     pipe.rpush(queue_key, json.dumps(job))
     if body.dedupe_key:
         # store mapping; TTL optional (e.g., 1 day) to avoid unbounded growth
@@ -85,8 +87,10 @@ def get_job(job_id: str):
 @app.get("/v1/queues/metrics")
 def queue_metrics():
     return {
-        "queue_default_length": r.llen("queue:default"),
-        "queue_dlq_length": r.llen("queue:dlq"),
+        "queue_high_length": r.llen("queue:high"),
++        "queue_default_length": r.llen("queue:default"),
++        "queue_low_length": r.llen("queue:low"),
++        "queue_dlq_length": r.llen("queue:dlq"),
     }
 
 @app.post("/v1/replay-dlq")
